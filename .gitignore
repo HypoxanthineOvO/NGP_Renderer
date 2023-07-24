@@ -1,3 +1,5 @@
+# For .vscode
+.vscode/
 # Ignore Data
 data/
 snapshots/
