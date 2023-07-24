@@ -3,6 +3,8 @@
 # Ignore Data
 data/
 snapshots/
+outputs/
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -23,11 +23,11 @@ CONFIG_PATH = "./configs/base.json"
 from camera import Camera
 from dataloader import load_msgpack
 from renderer import render_rays
-from utils import *
+from utils import get_init_t_value, get_next_voxel
 
 scales = {
     "chair": 0.33,
-    "drums": 0.3,
+    "drums": 0.33,
     "ficus": 0.33,
     "hotdog": 0.33,
     "lego": 0.33,
@@ -41,8 +41,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     scene = args.scene
     img_w, img_h = args.w, args.h
-    DATA_PATH = f"./snapshots/TestData/{scene}_16.msgpack"
-    #DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"
+    #DATA_PATH = f"./snapshots/TestData/{scene}_16.msgpack"
+    DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"
     NERF_STEPS = args.steps
     SQRT3 = 1.7320508075688772
     STEP_LENGTH = SQRT3 / NERF_STEPS
@@ -88,6 +88,7 @@ if __name__ == "__main__":
             ray_d = torch.from_numpy(camera.rays_d[i, j: j + BATCH_SIZE]).to(DEVICE)
 
             t = 0.05
+            
             # Skip the empty ray
             if isinstance(t, str):
                 continue
@@ -120,5 +121,7 @@ if __name__ == "__main__":
     axes = fig.add_axes([0, 0, 1, 1])
     axes.set_axis_off()
     axes.imshow(camera.image)
-    plt.savefig(f"Test_{scene}.png")
+    output_dir = os.path.join("outputs")
+    os.makedirs(output_dir, exist_ok = True)
+    plt.savefig(os.path.join(output_dir, f"Test_{scene}.png"))
     
