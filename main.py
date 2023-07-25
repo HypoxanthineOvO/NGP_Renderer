@@ -22,7 +22,7 @@ CONFIG_PATH = "./configs/base.json"
 
 from camera import Camera
 from dataloader import load_msgpack
-from renderer import render_rays
+from renderer import render_ray, render_ray_original
 from utils import get_init_t_value, get_next_voxel
 
 scales = {
@@ -82,19 +82,20 @@ if __name__ == "__main__":
     rgb_net.load_state_dict({"params":snapshots["params"]["RGB"]})
     grid = snapshots["OccupancyGrid"]
     aabb = torch.tensor([[-0.5, -0.5, -0.5], [1.5, 1.5, 1.5]], device = DEVICE)
+
+
     for i in trange(camera.resolution[0]):
         for j in range(0, camera.resolution[1], BATCH_SIZE):
             ray_o = torch.from_numpy(camera.rays_o[i, j: j + BATCH_SIZE]).to(DEVICE)
             ray_d = torch.from_numpy(camera.rays_d[i, j: j + BATCH_SIZE]).to(DEVICE)
 
-            t = 0.05
-            
-            # Skip the empty ray
-            if isinstance(t, str):
-                continue
+            """
+            Naive Ray Marching
+            """ 
+            t = NEAR_DISTANCE
             color = torch.zeros(3, dtype = torch.float32, device = DEVICE)
             opacity = torch.zeros(1, dtype = torch.float32, device = DEVICE)
-            while (t <= 6.):
+            while (t <= FAR_DISTANCE):
                 position = ray_o + t * ray_d
                 if(grid.intersect(position[0] * scales[scene] * 2 + 0.5)):
                     # Case of we need run
@@ -114,7 +115,6 @@ if __name__ == "__main__":
                     
                 t += STEP_LENGTH
             camera.image[i, j: j + BATCH_SIZE] = color.cpu().detach().numpy()
-
     # Only show image and don't show the axis
     dpi = 100
     fig = plt.figure(figsize = (img_w / dpi, img_h / dpi), dpi = dpi)

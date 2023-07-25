@@ -4,17 +4,6 @@ import numpy as np
 
 ### Renderer
 def cumprod_exclusive(tensor: torch.Tensor) -> torch.Tensor:
-    r"""Mimick functionality of tf.math.cumprod(..., exclusive=True), as it isn't available in PyTorch.
-
-    Args:
-    tensor (torch.Tensor): Tensor whose cumprod (cumulative product, see `torch.cumprod`) along dim=-1
-      is to be computed.
-
-    Returns:
-    cumprod (torch.Tensor): cumprod of Tensor along dim=-1, mimiciking the functionality of
-      tf.math.cumprod(..., exclusive=True) (see `tf.math.cumprod` for details).
-    """
-    # TESTED
     # Only works for the last dimension (dim=-1)
     dim = -1
     # Compute regular cumprod first (this is equivalent to `tf.math.cumprod(..., exclusive=False)`).
@@ -26,22 +15,31 @@ def cumprod_exclusive(tensor: torch.Tensor) -> torch.Tensor:
 
     return cumprod
 
-def render_rays(z_values, sigmas, rgbs, batch_size = 1):
-    one_e_10 = torch.tensor([1e10])
-    if torch.cuda.is_available():
-        one_e_10 = one_e_10.to("cuda")
-    z_values = z_values.expand([batch_size, -1]).to("cuda")
+def render_ray(alpha_raws, color_raws, step_length = 1.7320508075688772 / 1024):
+    """
+    Do Volume Rendering for a single ray's data
+    """
     
-    dists = torch.cat([z_values[...,1:] - z_values[...,:-1],one_e_10.expand(z_values[...,:1].shape)],dim = -1)
-    #print("Sigmas: ",sigmas.shape)
-    #print("Dists: ",dists.shape)
-    alpha = 1.0 - torch.exp(-sigmas * dists) * 1.73205080757 / 1024
-    #print(alpha.shape)
-    weights = alpha * cumprod_exclusive(1.0 - alpha + 1e-10)
-    
-    #print(weights.shape, rgbs.shape)
-    rgb_map = (weights[...,np.newaxis] * rgbs).sum(dim = -2)
-    depth_map = (weights * z_values).sum(dim = -1)
-    acc_map = weights.sum(-1)
-    
-    return rgb_map,depth_map,acc_map
+    alphas = 1 - torch.exp(-torch.exp(alpha_raws) * step_length)
+    weights = alphas * cumprod_exclusive(1.0 - alphas + 1e-10)
+    rgbs = torch.sigmoid(color_raws) * weights
+    return torch.sum(rgbs, dim = -2)
+
+def render_ray_original(alpha_raws, color_raws, step_length = 1.7320508075688772 / 1024):
+	"""
+	Do Volume Rendering for a single ray's data
+	"""
+	DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	opacity = torch.zeros(1, dtype = torch.float32, device = DEVICE)
+	color = torch.zeros(3, dtype = torch.float32, device = DEVICE)
+	for i in range(alpha_raws.shape[0]):
+		T = 1 - opacity
+		#print(alpha_raws.shape, color_raws.shape)
+		alpha = 1 - torch.exp(-torch.exp(alpha_raws[i]) * step_length)
+		#print(alpha.shape)
+		weight = T * alpha
+		rgb = torch.sigmoid(color_raws[i]) * weight
+		#print(rgb.shape)
+		opacity += weight
+		color += rgb
+	return color
