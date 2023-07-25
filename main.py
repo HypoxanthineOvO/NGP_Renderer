@@ -25,16 +25,7 @@ from dataloader import load_msgpack
 from renderer import render_ray, render_ray_original
 from utils import get_init_t_value, get_next_voxel
 
-scales = {
-    "chair": 0.33,
-    "drums": 0.33,
-    "ficus": 0.33,
-    "hotdog": 0.33,
-    "lego": 0.33,
-    "materials": 0.33,
-    "mic": 0.33,
-    "ship": 0.33
-}
+SCALE = 0.33
 
 if __name__ == "__main__":
     # Deal with Arguments
@@ -97,9 +88,9 @@ if __name__ == "__main__":
             opacity = torch.zeros(1, dtype = torch.float32, device = DEVICE)
             while (t <= FAR_DISTANCE):
                 position = ray_o + t * ray_d
-                if(grid.intersect(position[0] * scales[scene] * 2 + 0.5)):
+                if(grid.intersect(position[0] * SCALE * 2 + 0.5)):
                     # Case of we need run
-                    pos_hash = position * scales[scene] + 0.5
+                    pos_hash = position * SCALE + 0.5
                     hash_feature = hashenc(pos_hash)
                     sh_feature = shenc((ray_d + 1)/2)
                     feature = torch.concat([hash_feature, sh_feature], dim = -1)

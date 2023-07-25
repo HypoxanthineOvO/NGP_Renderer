@@ -6,7 +6,7 @@ snapshots/
 outputs/
 mine/
 tests/
-*.png
+
 *.npy
 
 # Byte-compiled / optimized / DLL files
