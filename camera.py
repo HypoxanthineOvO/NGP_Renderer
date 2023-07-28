@@ -3,6 +3,7 @@ import torch
 
 
 ### Camera
+SCALE = 0.33
 
 class Camera:
     def __init__(self, resolution, camera_angle, camera_matrix):
@@ -43,8 +44,8 @@ class Camera:
         self.rays_d = np.sum(self.directions[..., np.newaxis, :] * self.camera_to_world, -1)
         
         # Try to transpose
-        self.rays_o = self.rays_o[..., [1,2,0]]
-        self.rays_d = self.rays_d[..., [1,2,0]]
+        self.rays_o = self.rays_o[..., [1,2,0]] * SCALE
+        self.rays_d = self.rays_d[..., [1,2,0]] * SCALE
         # Normalize rays_d
         #self.rays_d = self.rays_d / np.linalg.norm(self.rays_d, axis=-1, keepdims=True)
 
