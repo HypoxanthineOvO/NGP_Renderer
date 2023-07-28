@@ -25,3 +25,4 @@ class DensityGrid:
             return 0
         point_idx = np.floor((point - self.aabb[0]) / (self.aabb[1] - self.aabb[0]) * self.grid.shape)
         return self.grid[tuple(point_idx.astype(np.int8))]
+    

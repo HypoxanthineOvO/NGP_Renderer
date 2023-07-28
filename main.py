@@ -72,7 +72,6 @@ if __name__ == "__main__":
     hashenc.load_state_dict({"params":snapshots["params"]["HashEncoding"]})
     rgb_net.load_state_dict({"params":snapshots["params"]["RGB"]})
     grid = snapshots["OccupancyGrid"]
-    aabb = torch.tensor([[-0.5, -0.5, -0.5], [1.5, 1.5, 1.5]], device = DEVICE)
 
 
     for i in trange(camera.resolution[0]):
