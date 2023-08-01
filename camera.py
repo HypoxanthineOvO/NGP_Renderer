@@ -11,7 +11,7 @@ class Camera:
         self.resolution = resolution
         self.w = self.resolution[0]
         self.h = self.resolution[1]
-        self.image = np.zeros((resolution[0], resolution[1], 3)) # RGB Image
+        self.image = np.zeros((resolution[0] * resolution[1], 3)) # RGB Image
         # Parameters
         self.position = np.array([0.0, 0.0, 0.0])
         self.camera_to_world = np.zeros((3, 3))
@@ -48,4 +48,8 @@ class Camera:
         self.rays_d = self.rays_d[..., [1,2,0]] * SCALE
         # Normalize rays_d
         self.rays_d = self.rays_d / np.linalg.norm(self.rays_d, axis=-1, keepdims=True)
+        
+        # Transform rays_o and rays_d to [Pixels, 3]
+        self.rays_o = np.reshape(self.rays_o, (-1, 3))
+        self.rays_d = np.reshape(self.rays_d, (-1, 3))
 
