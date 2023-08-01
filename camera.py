@@ -47,5 +47,5 @@ class Camera:
         self.rays_o = self.rays_o[..., [1,2,0]] * SCALE
         self.rays_d = self.rays_d[..., [1,2,0]] * SCALE
         # Normalize rays_d
-        #self.rays_d = self.rays_d / np.linalg.norm(self.rays_d, axis=-1, keepdims=True)
+        self.rays_d = self.rays_d / np.linalg.norm(self.rays_d, axis=-1, keepdims=True)
 

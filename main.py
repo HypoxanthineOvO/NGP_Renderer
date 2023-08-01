@@ -14,9 +14,8 @@ parser.add_argument("--h", "--height", type = int, default = 100, help = "height
 parser.add_argument("--name", help = "Name Of the Output Image")
 
 ### Constants
-NEAR_DISTANCE = 0.05
-FAR_DISTANCE = 6.
-BATCH_SIZE = 1
+NEAR_DISTANCE = 0.
+FAR_DISTANCE = 2.
 
 CONFIG_PATH = "./configs/base.json"
 
@@ -32,6 +31,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     scene = args.scene
     img_w, img_h = args.w, args.h
+    BATCH_SIZE = img_h
     #DATA_PATH = f"./snapshots/TestData/{scene}_16.msgpack"
     DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"
     NERF_STEPS = args.steps
@@ -83,27 +83,34 @@ if __name__ == "__main__":
             Naive Ray Marching
             """ 
             t = NEAR_DISTANCE
-            color = torch.zeros(3, dtype = torch.float32, device = DEVICE)
-            opacity = torch.zeros(1, dtype = torch.float32, device = DEVICE)
+            color = torch.zeros([BATCH_SIZE, 3], dtype = torch.float32, device = DEVICE)
+            opacity = torch.zeros([BATCH_SIZE, 1], dtype = torch.float32, device = DEVICE)
+            test_total_masks = torch.zeros([BATCH_SIZE, 1], dtype = torch.float32, device = DEVICE)
             while (t <= FAR_DISTANCE):
                 position = ray_o + t * ray_d
-                if(grid.intersect(position[0] * 2 + 0.5)):
-                    # Case of we need run
-                    pos_hash = position + 0.5
-                    hash_feature = hashenc(pos_hash)
-                    sh_feature = shenc((ray_d + 1)/2)
-                    feature = torch.concat([hash_feature, sh_feature], dim = -1)
+                #if(grid.intersect(position[0] * 2 + 0.5)):
+                masks = grid.intersect(position * 2 + 0.5).reshape((-1, 1))
+                test_total_masks += masks
+                # Case of we need run
+                pos_hash = position + 0.5
+                hash_feature = hashenc(pos_hash)
+                sh_feature = shenc((ray_d + 1)/2)
+                feature = torch.concat([hash_feature, sh_feature], dim = -1)
 
-                    alpha_raw = hash_feature[:, 0]
-                    rgb_raw = rgb_net(feature)
-                    T = 1 - opacity
-                    alpha = 1 - torch.exp(-torch.exp(alpha_raw) * STEP_LENGTH)
-                    weight = T * alpha
-                    rgb = torch.sigmoid(rgb_raw) * weight
-                    opacity += weight
-                    color += rgb[0]
+                alpha_raw = hash_feature[:, 0:1]
+                rgb_raw = rgb_net(feature)
+                T = 1 - opacity
+                alpha = 1 - torch.exp(-torch.exp(alpha_raw) * STEP_LENGTH)
+                
+                weight = T * alpha * masks
+                rgb = torch.sigmoid(rgb_raw) * weight
+                
+                opacity += weight
+                color += rgb
                     
                 t += STEP_LENGTH
+            #camera.image[i, j: j + BATCH_SIZE] = test_total_masks.cpu().detach().numpy() / NERF_STEPS * 10
+            #continue
             camera.image[i, j: j + BATCH_SIZE] = color.cpu().detach().numpy()
     # Only show image and don't show the axis
     dpi = 100

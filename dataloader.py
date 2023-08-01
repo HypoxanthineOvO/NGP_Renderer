@@ -47,10 +47,15 @@ def load_msgpack(path: str):
     grid_raw = np.clip(
         np.frombuffer(config["snapshot"]["density_grid_binary"],dtype=np.float16).astype(np.float32),
         0, 1)
-    grid = np.zeros([128, 128, 128], dtype = np.int8)
+    grid = np.zeros([128 * 128 * 128], dtype = np.int8)
     for idx in range(grid_raw.shape[0]):
-        x,y,z = mt.deMorton(idx, 0)
-        grid[x,y,z] = (grid_raw[idx] > 0.01)
+        x,y,z = mt.deMorton(idx, False)
+        grid[x * 128 * 128 + y * 128 + z] = (grid_raw[idx] > 0.01)
+    
+    # grid = np.zeros([128, 128, 128], dtype = np.int8)
+    # for idx in range(grid_raw.shape[0]):
+    #     x,y,z = mt.deMorton(idx, 0)
+    #     grid[x,y,z] = (grid_raw[idx] > 0.01)
     # For AABB: we only consider k = 1
     ## The Domain is [-0.5, -0.5, -0.5] to [1.5, 1.5, 1.5]
     oc_grid = DensityGrid(grid,[[-0.5, -0.5, -0.5], [1.5, 1.5, 1.5]])

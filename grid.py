@@ -6,23 +6,20 @@ class DensityGrid:
         '''
         Initialize the Density Grid
         '''
-        self.grid = grid
-        if(isinstance(aabb, list)):
-            aabb = np.array(aabb)
-        assert(aabb.shape == (2,3))
-        self.aabb = aabb
-        self.scales = (self.aabb[1] - self.aabb[0]) * self.grid.shape
-        #print(self.scales)
+        self.grid = torch.tensor(grid, device = "cuda")
+        self.aabb = torch.tensor(aabb, device = "cuda")
     
-    def intersect(self, point):
-        if(isinstance(point, list)):
-            point = np.array(point)
-        if(isinstance(point, torch.Tensor)):
-            point = point.detach().cpu().numpy()
-        assert(point.shape == (3,))
-        # If the point is out of the grid, return 0
-        if(np.any(point <= self.aabb[0]) or np.any(point >= self.aabb[1])):
-            return 0
-        point_idx = np.floor((point - self.aabb[0]) / (self.aabb[1] - self.aabb[0]) * self.grid.shape)
-        return self.grid[tuple(point_idx.astype(np.int8))]
-    
+    def intersect(self, points):
+        idxs = torch.sum(
+            torch.floor(
+                (points - self.aabb[0]) / (self.aabb[1] - self.aabb[0]) * 128) 
+                * 
+                torch.tensor([128 * 128, 128, 1], device = points.device
+            ),dim = -1, dtype = torch.int32)
+        
+        # Noticed that: a point out of aabb may map to a index in [0, 128**3)
+        # So we must check by this
+        masks_raw = ((points >= self.aabb[0]) & (points <= self.aabb[1]))
+        masks = torch.all(masks_raw, dim = 1).type(torch.int32)
+        valid_idxs = idxs * masks
+        return self.grid[valid_idxs]
