@@ -49,8 +49,12 @@ if __name__ == "__main__":
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Visualize Informations
-    print("=====Hypoxanthine's Instant NGP=====")
-    
+    print("==========Hypoxanthine's Instant NGP==========")
+    print(f"Scene: NeRF-Synthetic {scene}")
+    print(f"Image: {img_w} x {img_h}")
+    NAME = args.name if args.name is not None else f"Test_{scene}"
+    print(f"The output image is {NAME}.png")
+
     # Camera Parameters
     with open(f"./data/nerf_synthetic/{scene}/transforms_test.json", "r") as f:
         meta = json.load(f)
@@ -77,14 +81,21 @@ if __name__ == "__main__":
     ).to(DEVICE)
     camera = Camera(resolution, m_Camera_Angle_X, m_C2W)
     
+    print("==========HyperParameters==========")
+    print(f"Steps: {args.steps}")
+    log2_hashgrid_size = config["HashEnc"]["log2_hashmap_size"]
+    print(f"Hash Grid Size: 2 ^ {log2_hashgrid_size}")
+    print("AABB: (-0.5, -0.5, -0.5) ~ (1.5, 1.5, 1.5)")
+
     # Load Parameters
     snapshots = load_msgpack(DATA_PATH)
     hashenc.load_state_dict({"params":snapshots["params"]["HashEncoding"]})
     rgb_net.load_state_dict({"params":snapshots["params"]["RGB"]})
     grid = snapshots["OccupancyGrid"]
 
-    # Show Memory Info
     
+    print("==========Begin Running==========")
+    print(f"Batch Size: {BATCH_SIZE}")
     pixels = camera.resolution[0] * camera.resolution[1]
     for pixel_index in trange(0, pixels, BATCH_SIZE):
         BATCH = min(BATCH_SIZE, pixels - pixel_index)
@@ -131,8 +142,6 @@ if __name__ == "__main__":
     output_dir = os.path.join("outputs")
     os.makedirs(output_dir, exist_ok = True)
     
-    output_name = f"Test_{scene}.png"
-    if args.name is not None:
-        output_name = args.name + ".png"
-    plt.savefig(os.path.join(output_dir, output_name))
     
+    plt.savefig(os.path.join(output_dir, NAME))
+    print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")

@@ -5,7 +5,7 @@ from grid import DensityGrid
 from tqdm import tqdm
     
 def load_msgpack(path: str):
-    print("Loding Msgpack...")
+    print(f"Loding Msgpack from {path}")
     # Return Value
     res = {}
     # Get Morton3D Object
