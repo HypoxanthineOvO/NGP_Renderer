@@ -27,7 +27,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ### Scene Name
     scene = args.scene
-    DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"    
+    #DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"    
+    DATA_PATH = f"./snapshots/TotalData/{scene}.msgpack"
     ### Resolution
     img_w, img_h = args.w, args.h    
     resolution = (img_w, img_h)    

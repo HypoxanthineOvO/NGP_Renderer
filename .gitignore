@@ -1,6 +1,8 @@
 # Some File
 our_main.py
 test*
+tester.py
+run.py
 
 # For .vscode
 .vscode/
