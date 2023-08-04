@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+### Ray Marching Utils
 def get_init_t_value(aabb, ray_o, ray_d):
     """
     Given a ray with ray_o, ray_d and an axis-aligned bounding box
@@ -40,23 +41,43 @@ def get_index(pos):
     """
     return np.floor((pos + 0.5) * 64)
 
-if __name__ == "__main__":
-    aabb = torch.tensor([[-0.5, -0.5, -0.5], [1.5, 1.5, 1.5]])
-    ray_o = torch.tensor([3.2373, 3.4593, 0.5000])
-    ray_d = torch.tensor([-0.8733, -0.5749, -0.1085])
-    
-    # Simulate
-    t = get_init_t_value(aabb, ray_o, ray_d)
-    if isinstance(t, str):
-        # continue
-        exit()
-    while(t <= 6.):
-        pos = ray_o + t * ray_d
-        print(t, pos)
-        # if grid.intersect(pos):
-        dt = get_next_voxel(pos, ray_d)
-        print(dt)
-        if isinstance(dt, str):
-            print("END!")
-            break
-        t += dt
+
+### Rendering Utils
+def cumprod_exclusive_ngp(tensor: torch.Tensor) -> torch.Tensor:
+    ### Support for my implementation
+    in_shape = (tensor.shape[0],)
+    out_shape = (tensor.shape[0], 1)
+    tensor = tensor.reshape(in_shape)
+    # Only works for the last dimension (dim=-1)
+    dim = -1
+    # Compute regular cumprod first (this is equivalent to `tf.math.cumprod(..., exclusive=False)`).
+    cumprod = torch.cumprod(tensor, dim)
+    # "Roll" the elements along dimension 'dim' by 1 element.
+    cumprod = torch.roll(cumprod, 1, dim)
+    # Replace the first element by "1" as this is what tf.cumprod(..., exclusive=True) does.
+    cumprod[..., 0] = 1.0
+
+    return cumprod.reshape(out_shape)
+
+### ISCA 2024 Method
+def gen_normal(bins = 9):
+    indexs = np.arange(-bins//2+1, bins//2+1, 1)
+    ans = np.zeros(bins)
+    for i, index in enumerate(indexs):
+        ans[i] = (1/np.sqrt(2*np.pi)) * np.exp(-(index * index) / 2.5)
+    return ans
+
+def generate_curve(ts: torch.tensor, oc_res: torch.tensor):
+    assert(ts.shape[0] == oc_res.shape[0])
+    l = ts.shape[0]
+    normals = gen_normal(l)
+    res = torch.zeros(l, device = ts.device)
+    for i in range(l):
+        offset = i - l // 2
+        for i in range(l):
+            if (i-offset >= 0) and (i-offset < 25):
+                res[i] += normals[i-offset]
+
+    res = res / torch.sum(res)
+    # 考虑不归一化，直接把大于等于1作为采样的标准
+    CDF = torch.cumsum(res)
