@@ -91,6 +91,7 @@ if __name__ == "__main__":
     
     print("==========Begin Running==========")
     pixels = camera.resolution[0] * camera.resolution[1]
+    valid_points_counter = np.zeros(camera.resolution[0] * camera.resolution[1])
     for pixel_index in trange(0, pixels):
         ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + 1]).to(DEVICE)
         ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + 1]).to(DEVICE)
@@ -114,7 +115,7 @@ if __name__ == "__main__":
         alphas_raw = hash_features[..., 0:1]
         rgbs_raw = rgb_net(features)
         camera.image[pixel_index] = render_ray(alphas_raw, rgbs_raw, STEP_LENGTH)
-
+        valid_points_counter[pixel_index] = torch.sum(occupancy).detach().cpu().numpy()
     # Only show image and don't show the axis
     dpi = 100
     fig = plt.figure(figsize = (img_w / dpi, img_h / dpi), dpi = dpi)
@@ -127,3 +128,6 @@ if __name__ == "__main__":
     
     plt.savefig(os.path.join(output_dir, NAME))
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
+    
+    # Save counter
+    # np.save(f"ValidPts_{scene}", valid_points_counter)
