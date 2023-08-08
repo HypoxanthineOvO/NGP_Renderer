@@ -65,19 +65,24 @@ def gen_normal(bins = 9):
     ans = np.zeros(bins)
     for i, index in enumerate(indexs):
         ans[i] = (1/np.sqrt(2*np.pi)) * np.exp(-(index * index) / 2.5)
-    return ans
+    return ans / ans[bins//2]
 
-def generate_curve(ts: torch.tensor, oc_res: torch.tensor):
+def generate_curve(ts: torch.tensor, oc_res: torch.tensor, normals: torch.tensor):
     assert(ts.shape[0] == oc_res.shape[0])
     l = ts.shape[0]
-    normals = gen_normal(l)
+    #normals = gen_normal(bins = l)
+    
     res = torch.zeros(l, device = ts.device)
-    for i in range(l):
-        offset = i - l // 2
-        for i in range(l):
-            if (i-offset >= 0) and (i-offset < 25):
-                res[i] += normals[i-offset]
+    idxs = torch.where(oc_res)[0]
+    #print(idxs)
+    offsets = idxs - l // 2
+    left_idxs = torch.clip(offsets, 0, l).type(torch.int32)
+    right_idxs = torch.clip(offsets + l, 0, l).type(torch.int32)
+    for i in range(idxs.shape[0]):
+        
+        res[left_idxs[i]:right_idxs[i]] += normals[left_idxs[i]-offsets[i]:right_idxs[i]-offsets[i]]
+    return res #/ torch.sum(res) * torch.sum(oc_res)
 
-    res = res / torch.sum(res)
-    # 考虑不归一化，直接把大于等于1作为采样的标准
-    CDF = torch.cumsum(res)
+if __name__ == "__main__":
+    ll = 25
+    print(gen_normal(ll)[(ll-1)//2])
