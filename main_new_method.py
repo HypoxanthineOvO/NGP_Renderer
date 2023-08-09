@@ -8,10 +8,11 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--scene", type=str, default="lego", help="scene name")
-parser.add_argument("--steps", type=int, default = 1024, help="steps of each ray")
+parser.add_argument("--steps", type=int, default = 256, help="steps of each ray")
 parser.add_argument("--w", "--width", type = int, default = 800, help = "width of the image")
 parser.add_argument("--h", "--height", type = int, default = 800, help = "height of the image")
 parser.add_argument("--name", help = "Name Of the Output Image")
+parser.add_argument("--thredhold", help = "Thredhold of new method", type = float, default = 0.2)
 
 
 from camera import Camera
@@ -33,10 +34,11 @@ if __name__ == "__main__":
     NERF_STEPS = args.steps
     SQRT3 = 1.7320508075688772
     STEP_LENGTH = SQRT3 / NERF_STEPS
-    
+    ## THREDHOLD
+    THREDHOLD = args.thredhold
     ## Constants
-    NEAR_DISTANCE = 0.5
-    FAR_DISTANCE = 2.5
+    NEAR_DISTANCE = 0.6
+    FAR_DISTANCE = 2.0
 
     CONFIG_PATH = "./configs/base.json"
 
@@ -109,22 +111,13 @@ if __name__ == "__main__":
         ### New Method
         #print(occupancy)
         density_curve = generate_curve(ts, occupancy, NORMAL)
-        #print(density_curve, density_curve.shape, torch.where(density_curve > 0.2))
-        oc = (density_curve > 0.2).type(torch.int32)
-        #print(oc)
-        oc_delta = oc[1:] - oc[:-1]
-        #print(oc_delta)
-        oc_beg, oc_end = torch.where(oc_delta == 1)[0], torch.where(oc_delta == -1)[0]
+        oc = torch.where(density_curve > THREDHOLD)[0]
+        ts_final = torch.cat(
+            [torch.arange(
+                (ts[oc[i]] - 0.5 * STEP_LENGTH).item(), (ts[oc[i]] + 0.5 * STEP_LENGTH).item(), SQRT3/1024, device = DEVICE
+                )
+            for i in range(oc.shape[0])], dim = -1).reshape((-1, 1))
         
-        
-        assert (oc_beg.shape == oc_end.shape), f"Begin:{oc_beg.shape[0]}; End: {oc_end.shape[0]}"
-        num_of_interval = oc_beg.shape[0]
-        ts_f = []
-        for i in range(num_of_interval):
-            ts_f.append(torch.arange((ts[oc_beg[i]] - STEP_LENGTH * 0.5).item(), (ts[oc_end[i]] + STEP_LENGTH * 0.5).item(), SQRT3/1024, device = DEVICE))
-
-        ts_final = torch.cat(ts_f, dim = -1).reshape((-1, 1))
-
         pts_final = ray_o + ts_final * ray_d
         color = torch.zeros([1, 3], dtype = torch.float32, device = DEVICE)
         opacity = torch.zeros([1, 1], dtype = torch.float32, device = DEVICE)

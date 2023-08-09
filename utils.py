@@ -65,6 +65,7 @@ def gen_normal(bins = 9):
     ans = np.zeros(bins)
     for i, index in enumerate(indexs):
         ans[i] = (1/np.sqrt(2*np.pi)) * np.exp(-(index * index) / 2.5)
+    # ! 目前的归一化是归一化到“中间”为1
     return ans / ans[bins//2]
 
 def generate_curve(ts: torch.tensor, oc_res: torch.tensor, normals: torch.tensor):
