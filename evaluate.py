@@ -20,7 +20,6 @@ def PSNR(name, path, id):
 if __name__ == "__main__":
     out_basedir = os.path.join(".", "test_out")
     STEP = 8
-    
     for scene in scenes:
         psnrs = []
         out_dir = os.path.join(out_basedir, scene)
@@ -31,7 +30,7 @@ if __name__ == "__main__":
             command_out_dir = os.path.join(".", "outputs")
             psnr = PSNR(scene, command_out_dir, id)
             psnrs.append(psnr)
-            os.remove(os.path.join(out_dir, f"Test_{scene}_{id}.png"))
+            #os.remove(os.path.join(out_dir, f"Test_{scene}_{id}.png"))
             shutil.move(os.path.join(command_out_dir, f"Test_{scene}_{id}.png"),os.path.join(out_dir))
         mean_psnr = round(np.mean(psnrs), 4)
         print(f"{scene.capitalize()}'s PSNR: {mean_psnr}")
