@@ -109,8 +109,8 @@ if __name__ == "__main__":
         if(torch.sum(occupancy) == 0):
             continue
         ### New Method
-        #print(occupancy)
-        density_curve = generate_curve(ts, occupancy, NORMAL)
+        
+        density_curve = generate_curve(occupancy, NORMAL)
         oc = torch.where(density_curve > THREDHOLD)[0]
         ts_final = torch.cat(
             [torch.arange(

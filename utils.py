@@ -68,12 +68,10 @@ def gen_normal(bins = 9):
     # ! 目前的归一化是归一化到“中间”为1
     return ans / ans[bins//2]
 
-def generate_curve(ts: torch.tensor, oc_res: torch.tensor, normals: torch.tensor):
-    assert(ts.shape[0] == oc_res.shape[0])
-    l = ts.shape[0]
-    #normals = gen_normal(bins = l)
+def generate_curve(oc_res: torch.tensor, normals: torch.tensor):
+    l = oc_res.shape[0]
     
-    res = torch.zeros(l, device = ts.device)
+    res = torch.zeros(l, device = oc_res.device)
     idxs = torch.where(oc_res)[0]
     #print(idxs)
     offsets = idxs - l // 2
