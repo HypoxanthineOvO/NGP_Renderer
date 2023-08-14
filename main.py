@@ -8,6 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--scene", type=str, default="lego", help="scene name")
+parser.add_argument("--data", type = str, default = "ISCAData", help = "Name of data dir")
 parser.add_argument("--steps", type=int, default = 1024, help="steps of each ray")
 parser.add_argument("--w", "--width", type = int, default = 800, help = "width of the image")
 parser.add_argument("--h", "--height", type = int, default = 800, help = "height of the image")
@@ -25,8 +26,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ### Scene Name
     scene = args.scene
-    #DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"    
-    DATA_PATH = f"./snapshots/TotalData/{scene}.msgpack"
+    data_dir = args.data
+    DATA_PATH = f"./snapshots/{data_dir}/{scene}.msgpack"
     ### Resolution
     img_w, img_h = args.w, args.h    
     resolution = (img_w, img_h)    
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     
     print("==========Begin Running==========")
     pixels = camera.resolution[0] * camera.resolution[1]
-    #valid_points_counter = np.zeros(camera.resolution[0] * camera.resolution[1])
+    valid_points_counter = np.zeros(camera.resolution[0] * camera.resolution[1])
     
     if args.fast:
         BATCH_SIZE = args.fast
@@ -157,7 +158,7 @@ if __name__ == "__main__":
             alphas_raw = hash_features[..., 0:1]
             rgbs_raw = rgb_net(features)
             camera.image[pixel_index] = render_ray(alphas_raw, rgbs_raw, STEP_LENGTH)
-            #valid_points_counter[pixel_index] = torch.sum(occupancy).detach().cpu().numpy()
+            valid_points_counter[pixel_index] = torch.sum(occupancy).detach().cpu().numpy()
         
     # * Only show image and don't show the axis
     dpi = 100
@@ -173,4 +174,4 @@ if __name__ == "__main__":
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
     
     # Save counter
-    # np.save(f"ValidPts_{scene}", valid_points_counter)
+    np.save(f"ValidPts_{scene}", valid_points_counter)

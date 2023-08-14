@@ -21,3 +21,4 @@
 ## 文件结构：
 - `main.py` 是目前的主程序
 - `main_naive_ngp.py` 是用朴素的 ray marching 加上多像素并行实现的版本，速度更快一点
+- `main_new_method.py` 是 我们的高斯估计法

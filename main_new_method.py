@@ -8,6 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--scene", type=str, default="lego", help="scene name")
+parser.add_argument("--data", type = str, default = "ISCAData", help = "Name of data dir")
 parser.add_argument("--steps", type=int, default = 256, help="steps of each ray")
 parser.add_argument("--w", "--width", type = int, default = 800, help = "width of the image")
 parser.add_argument("--h", "--height", type = int, default = 800, help = "height of the image")
@@ -26,7 +27,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ### Scene Name
     scene = args.scene
-    DATA_PATH = f"./snapshots/ISCAData/{scene}.msgpack"
+    data_dir = args.data
+    DATA_PATH = f"./snapshots/{data_dir}/{scene}.msgpack"
     ### Resolution
     img_w, img_h = args.w, args.h    
     resolution = (img_w, img_h)    
@@ -96,6 +98,7 @@ if __name__ == "__main__":
     ts = torch.reshape(torch.linspace(NEAR_DISTANCE, FAR_DISTANCE, NERF_STEPS, device = DEVICE), (-1, 1))
     
     NORMAL = torch.tensor(gen_normal(NERF_STEPS), device = DEVICE)
+    valid_point_counter = np.zeros((camera.resolution[0], camera.resolution[1]))
     for pixel_index in trange(0, pixels):
         ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + 1]).to(DEVICE)
         ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + 1]).to(DEVICE)
@@ -117,11 +120,10 @@ if __name__ == "__main__":
                 (ts[oc[i]] - 0.5 * STEP_LENGTH).item(), (ts[oc[i]] + 0.5 * STEP_LENGTH).item(), SQRT3/1024, device = DEVICE
                 )
             for i in range(oc.shape[0])], dim = -1).reshape((-1, 1))
-        
+        valid_point_counter[pixel_index//800, pixel_index%800] += ts_final.count_nonzero().detach().cpu().numpy()
         pts_final = ray_o + ts_final * ray_d
         color = torch.zeros([1, 3], dtype = torch.float32, device = DEVICE)
         opacity = torch.zeros([1, 1], dtype = torch.float32, device = DEVICE)
-        #pts_truth = pts[torch.where(occupancy)]
 
         hash_features = hashenc(pts_final + 0.5)
         sh_features = torch.tile(shenc((ray_d+1) / 2), (hash_features.shape[0], 1))
@@ -129,7 +131,7 @@ if __name__ == "__main__":
 
         alphas_raw = hash_features[..., 0:1]
         rgbs_raw = rgb_net(features)
-        camera.image[pixel_index] = render_ray(alphas_raw, rgbs_raw, SQRT3/1024)#STEP_LENGTH)
+        camera.image[pixel_index] = render_ray(alphas_raw, rgbs_raw, SQRT3/1024)
 
     # Only show image and don't show the axis
     dpi = 100
@@ -143,3 +145,4 @@ if __name__ == "__main__":
     
     plt.savefig(os.path.join(output_dir, NAME))
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
+    np.save(f"Vps_new_{scene}", valid_point_counter)
