@@ -8,7 +8,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--scene", type=str, default="lego", help="scene name")
-parser.add_argument("--data", type = str, default = "ISCAData", help = "Name of data dir")
+parser.add_argument("--data", type = str, default = "TotalData", help = "Name of data dir")
 parser.add_argument("--steps", type=int, default = 1024, help="steps of each ray")
 parser.add_argument("--w", "--width", type = int, default = 800, help = "width of the image")
 parser.add_argument("--h", "--height", type = int, default = 800, help = "height of the image")
@@ -19,6 +19,8 @@ parser.add_argument("--fast", type = int, default = 0, help = "Use Fast Compute 
 from camera import Camera
 from dataloader import load_msgpack
 from renderer import render_ray
+
+torch.set_printoptions(precision=4,sci_mode=False)
 
 if __name__ == "__main__":
     # Deal with Arguments
@@ -36,10 +38,6 @@ if __name__ == "__main__":
     SQRT3 = 1.7320508075688772
     STEP_LENGTH = SQRT3 / NERF_STEPS
     
-    ## Constants
-    NEAR_DISTANCE = 0.6
-    FAR_DISTANCE = 2.
-    
 
     CONFIG_PATH = "./configs/base.json"
 
@@ -48,6 +46,10 @@ if __name__ == "__main__":
     
     ## Test Data
     ID = args.test_id
+    ## Constants
+    NEAR_DISTANCE = 0.6#torch.tensor([0.6], dtype = torch.float32, device = DEVICE)
+    FAR_DISTANCE = 2.0#torch.tensor([2.], dtype = torch.float32, device = DEVICE)
+    
     
     
     # Visualize Informations
@@ -74,15 +76,18 @@ if __name__ == "__main__":
     ).to(DEVICE)
     shenc = tcnn.Encoding(
         n_input_dims = 3,
-        encoding_config = config["SHEnc"]
+        encoding_config = config["SHEnc"],
+        dtype = torch.float32
     ).to(DEVICE)
     rgb_net = tcnn.Network(
         n_input_dims = 32,
         n_output_dims = 3,
         network_config = config["RGBNet"]
     ).to(DEVICE)
-    camera = Camera(resolution, m_Camera_Angle_X, m_C2W)
     
+    
+    camera = Camera(resolution, m_Camera_Angle_X, m_C2W)
+    # exit()
     print("==========HyperParameters==========")
     print(f"Steps: {args.steps}")
     log2_hashgrid_size = config["HashEnc"]["log2_hashmap_size"]
@@ -92,6 +97,7 @@ if __name__ == "__main__":
     # Load Parameters
     snapshots = load_msgpack(DATA_PATH)
     hashenc.load_state_dict({"params":snapshots["params"]["HashEncoding"]})
+    
     rgb_net.load_state_dict({"params":snapshots["params"]["RGB"]})
     grid = snapshots["OccupancyGrid"]
 
@@ -100,13 +106,15 @@ if __name__ == "__main__":
     pixels = camera.resolution[0] * camera.resolution[1]
     valid_points_counter = np.zeros(camera.resolution[0] * camera.resolution[1])
     
+    stg01_time = 0
+    stgother_time = 0
     if args.fast:
         BATCH_SIZE = args.fast
         for pixel_index in trange(0, pixels, BATCH_SIZE):
             BATCH = min(BATCH_SIZE, pixels - pixel_index)
             ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + BATCH]).to(DEVICE)
             ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + BATCH]).to(DEVICE)
-
+            
             """
             Naive Ray Marching
             """ 
@@ -114,15 +122,21 @@ if __name__ == "__main__":
             color = torch.zeros([BATCH, 3], dtype = torch.float32, device = DEVICE)
             opacity = torch.zeros([BATCH, 1], dtype = torch.float32, device = DEVICE)
             while (t <= FAR_DISTANCE):
+                
                 position = ray_o + t * ray_d
-                #if(grid.intersect(position[0] * 2 + 0.5)):
+                
                 masks = grid.intersect(position * 2 + 0.5).reshape((-1, 1))
+                
+                t0 = time.time()
                 # Case of we need run
                 pos_hash = position + 0.5
+                #print(pos_hash)
                 hash_feature = hashenc(pos_hash)
+                #print(hash_feature)
+                #print(hashenc(torch.tensor([[-0.777, 0.1044, 0.6413]], device = DEVICE) + 0.5))
                 sh_feature = shenc((ray_d + 1)/2)
                 feature = torch.concat([hash_feature, sh_feature], dim = -1)
-
+                t1 = time.time()
                 alpha_raw = hash_feature[:, 0:1]
                 rgb_raw = rgb_net(feature)
                 T = 1 - opacity
@@ -133,10 +147,14 @@ if __name__ == "__main__":
                 
                 opacity += weight
                 color += rgb
+                
                     
                 t += STEP_LENGTH
-
-            camera.image[pixel_index: pixel_index + BATCH_SIZE] = color.cpu().detach().numpy()
+                t2 = time.time()
+                stg01_time += t1-t0
+                stgother_time += t2 - t1
+            
+            camera.image[pixel_index: pixel_index + BATCH_SIZE] = (color).cpu().detach().numpy()
     else:
         for pixel_index in trange(0, pixels):
             ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + 1]).to(DEVICE)
@@ -165,7 +183,7 @@ if __name__ == "__main__":
     fig = plt.figure(figsize = (img_w / dpi, img_h / dpi), dpi = dpi)
     axes = fig.add_axes([0, 0, 1, 1])
     axes.set_axis_off()
-    axes.imshow(camera.image.reshape(camera.w, camera.h, 3))
+    axes.imshow(camera.image.reshape(camera.w, camera.h, 3).astype(np.float32))
     output_dir = os.path.join("outputs")
     os.makedirs(output_dir, exist_ok = True)
     
@@ -173,5 +191,8 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(output_dir, NAME))
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
     
+    print(stg01_time)
+    print(stgother_time)
+    
     # Save counter
-    np.save(f"ValidPts_{scene}", valid_points_counter)
+    # np.save(f"ValidPts_{scene}", valid_points_counter)

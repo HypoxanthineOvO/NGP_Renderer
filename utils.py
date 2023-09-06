@@ -82,6 +82,78 @@ def generate_curve(oc_res: torch.tensor, normals: torch.tensor):
         res[left_idxs[i]:right_idxs[i]] += normals[left_idxs[i]-offsets[i]:right_idxs[i]-offsets[i]]
     return res #/ torch.sum(res) * torch.sum(oc_res)
 
+### Quantize utils
+### * Integer Quantize * ###
+
+def get_minmax_scale_factor(input_tensor):
+    """Compute Min-Max Scale
+
+    Args:
+        input_tensor (torch.tensor): The tensor to be quantize
+
+    Returns:
+        scale_factor: The scale factor of thie method
+        
+    Notices:
+        This Method use the max valud of abs(input) as the interval
+        of input tensor.
+    """
+    input_abs_bound = torch.max(torch.abs(input_tensor))
+    return torch.ceil(torch.log2(input_abs_bound + 1e-12))
+
+def Integer_Quant(input_tensor, scale_factor, zero_point, bounds = None):
+    """Basic Integer Quantize
+
+    Args:
+        input_tensor (torch.tensor): The tensor to be quantize
+        scale_factor (float): The scale factor for quantize
+        zero_point (float): The zero point for quantize
+        bounds (tuple(int, int)): The bound of quantize
+    Returns:
+        Quantized_tensor: The tensor after quantize and dequantize
+    """
+    integer_tensor = torch.round(input_tensor/scale_factor + zero_point)
+    # If given the bound, do clamp
+    if bounds is not None:
+        integer_tensor = torch.clamp(integer_tensor, bounds[0], bounds[1])
+    return (integer_tensor - zero_point) * scale_factor
+
+def MinMax_Quant(input_tensor, bits):
+    """Linear Min Max Quantization
+
+    Args:
+        input_tensor (torch.tensor): The tensor to be quantize
+        bits (int): The bits of quantization
+    
+    Returns:
+        Quantized_tensor: The tensor after quantize and dequantize
+    """
+    assert bits >= 1
+    bound = pow(2.0, bits - 1)
+    min_bound, max_bound = -bound, bound - 1
+    # Compute Scale Factor
+    ## sf_interval - 1 - bits is the log space operation
+    ## It means (2^(sf-1)) / 2^(bits)
+    log_space_scale_factor = get_minmax_scale_factor(input_tensor) - 1 - bits
+    scale_factor = torch.pow(2, log_space_scale_factor)
+    
+    return Integer_Quant(input_tensor, scale_factor, 0, (min_bound, max_bound))
+
+### * Floating Point Quantize * ###
+def FloatingPoint_Quantize(input_tensor, bits = 8):
+    """Convert input torch.float32 to float8
+    This Implementation is E4M3
+
+    Args:
+        input_tensor (torch.tensor): input float32 tensor
+        bits (int, optional): The length of quantization. Defaults to 8.
+    """
+
+
 if __name__ == "__main__":
-    ll = 25
-    print(gen_normal(ll)[(ll-1)//2])
+    x = torch.tensor([1,2,3,4,5e6+1])
+    print(x)
+    print(x.type(torch.int32))
+    print(x.type(torch.int32).data & 1)
+    print(torch.bitwise_and(x, 1))
+    
