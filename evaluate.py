@@ -11,8 +11,9 @@ scenes = ["chair", "drums", "ficus", "hotdog", "lego", "materials", "mic", "ship
 def PSNR(name, path, id):
     path1 = f"{path}/Test_{name}_{id}.png"
     path2 = f"./data/nerf_synthetic/{name}/test/r_{id}.png"
-    print(path1)
-    img1 = np.array(cv.imread(path1) / 255., dtype=np.float32)
+    
+    img1_raw = np.array(cv.imread(path1) / 255., dtype=np.float32)
+    img1 = cv.resize(img1_raw, (800, 800),interpolation = cv.INTER_AREA)
     img2 = np.array(cv.imread(path2) / 255., dtype=np.float32)
     
     return compute_psnr(img1, img2)
@@ -25,7 +26,7 @@ if __name__ == "__main__":
         out_dir = os.path.join(out_basedir, scene)
         os.makedirs(out_dir, exist_ok = True)
         for id in range(0, 200, STEP):
-            command = f"python main.py --scene {scene} --test_id {id} --fast 5000"
+            command = f"python main.py --scene {scene} --w 1600 --h 1600 --test_id {id} --fast 5000"
             os.system(command)
             command_out_dir = os.path.join(".", "outputs")
             psnr = PSNR(scene, command_out_dir, id)

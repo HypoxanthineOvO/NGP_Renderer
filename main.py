@@ -125,18 +125,12 @@ if __name__ == "__main__":
                 
                 position = ray_o + t * ray_d
                 
-                masks = grid.intersect(position * 2 + 0.5).reshape((-1, 1))
+                masks = grid.intersect(position * 2 - 0.5).reshape((-1, 1))
                 
-                t0 = time.time()
-                # Case of we need run
-                pos_hash = position + 0.5
-                #print(pos_hash)
-                hash_feature = hashenc(pos_hash)
-                #print(hash_feature)
-                #print(hashenc(torch.tensor([[-0.777, 0.1044, 0.6413]], device = DEVICE) + 0.5))
+                hash_feature = hashenc(position)
+                
                 sh_feature = shenc((ray_d + 1)/2)
                 feature = torch.concat([hash_feature, sh_feature], dim = -1)
-                t1 = time.time()
                 alpha_raw = hash_feature[:, 0:1]
                 rgb_raw = rgb_net(feature)
                 T = 1 - opacity
@@ -148,11 +142,7 @@ if __name__ == "__main__":
                 opacity += weight
                 color += rgb
                 
-                    
                 t += STEP_LENGTH
-                t2 = time.time()
-                stg01_time += t1-t0
-                stgother_time += t2 - t1
             
             camera.image[pixel_index: pixel_index + BATCH_SIZE] = (color).cpu().detach().numpy()
     else:
@@ -162,14 +152,14 @@ if __name__ == "__main__":
 
             ts = torch.reshape(torch.linspace(NEAR_DISTANCE, FAR_DISTANCE, NERF_STEPS, device = DEVICE), (-1, 1))
             pts = ray_o + ts * ray_d
-            occupancy = grid.intersect(pts * 2 + 0.5)
+            occupancy = grid.intersect(pts * 2 - 0.5)
             if(torch.sum(occupancy) == 0):
                 continue
             color = torch.zeros([1, 3], dtype = torch.float32, device = DEVICE)
             opacity = torch.zeros([1, 1], dtype = torch.float32, device = DEVICE)
             pts_truth = pts[torch.where(occupancy)]
 
-            hash_features = hashenc(pts_truth + 0.5)
+            hash_features = hashenc(pts_truth)
             sh_features = torch.tile(shenc((ray_d+1) / 2), (hash_features.shape[0], 1))
             features = torch.concat([hash_features, sh_features], dim = -1)
 
@@ -190,9 +180,3 @@ if __name__ == "__main__":
     
     plt.savefig(os.path.join(output_dir, NAME))
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
-    
-    print(stg01_time)
-    print(stgother_time)
-    
-    # Save counter
-    # np.save(f"ValidPts_{scene}", valid_points_counter)

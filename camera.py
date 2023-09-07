@@ -5,6 +5,29 @@ import torch
 ### Camera
 SCALE = 0.33
 
+def nerf_matrix_to_ngp(pose, scale=0.33, offset=[0.5, 0.5, 0.5]):
+    # for the fox dataset, 0.33 scales camera radius to ~ 2
+    new_pose = np.array([
+        [pose[1, 0], -pose[1, 1], -pose[1, 2], pose[1, 3] * scale + offset[0]],
+        [pose[2, 0], -pose[2, 1], -pose[2, 2], pose[2, 3] * scale + offset[1]],
+        [pose[0, 0], -pose[0, 1], -pose[0, 2], pose[0, 3] * scale + offset[2]],
+        [0, 0, 0, 1],
+    ], dtype=np.float32)
+    return new_pose
+
+def get_ray(x, y, hw, transform_matrix, focal, principal = [0.5, 0.5]):
+    x = (x + 0.5) / hw[0]
+    y = (y + 0.5) / hw[1]
+    ray_o = transform_matrix[:3, 3]
+    ray_d = np.array([
+        (x - principal[0]) * hw[0] / focal,
+        (y - principal[1]) * hw[1] / focal,
+        1.0,
+    ])
+    ray_d = np.matmul(transform_matrix[:3, :3], ray_d)
+    ray_d = ray_d / np.linalg.norm(ray_d)
+    return ray_o, ray_d
+
 class Camera:
     def __init__(self, resolution, camera_angle, camera_matrix):
         # Resolution: For Generate Image
@@ -38,18 +61,15 @@ class Camera:
             np.linspace(0, self.h-1, self.h), 
             indexing='xy'
         )
-        self.directions = np.stack([(i-0.5 * self.w)/ self.focal_length, -(j-0.5 * self.h)/self.focal_length, -np.ones_like(i)], -1)
-        # Transform to World Coordinate
-        self.rays_o = np.broadcast_to(self.position, self.directions.shape)
-        self.rays_d = np.sum(self.directions[..., np.newaxis, :] * self.camera_to_world, -1)
+        ngp_mat = nerf_matrix_to_ngp(camera_matrix)
+
+        rays_o, rays_d = [], []
+        for i in range(self.h):
+            for j in range(self.w):
+                ro, rd = get_ray(j, i, [self.h, self.w], ngp_mat, self.focal_length)
+                rays_o.append(ro)
+                rays_d.append(rd)
         
-        # Try to transpose
-        self.rays_o = self.rays_o[..., [1,2,0]] * SCALE
-        self.rays_d = self.rays_d[..., [1,2,0]] * SCALE
-        # Normalize rays_d
-        self.rays_d = self.rays_d / np.linalg.norm(self.rays_d, axis=-1, keepdims=True)
-        
-        # Transform rays_o and rays_d to [Pixels, 3]
-        self.rays_o = np.reshape(self.rays_o, (-1, 3))
-        self.rays_d = np.reshape(self.rays_d, (-1, 3))
+        self.rays_o = np.array(rays_o).reshape((-1, 3))
+        self.rays_d = np.array(rays_d).reshape((-1, 3))
 
