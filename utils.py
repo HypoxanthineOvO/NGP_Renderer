@@ -61,11 +61,17 @@ def cumprod_exclusive_ngp(tensor: torch.Tensor) -> torch.Tensor:
 
 ### ISCA 2024 Method
 def gen_normal(bins = 9):
+    print(bins)
+    print(bins // 2)
+    print(-bins // 2 + 1, bins // 2 + 1)
     indexs = np.arange(-bins//2+1, bins//2+1, 1)
+    print(indexs)
+    
     ans = np.zeros(bins)
     for i, index in enumerate(indexs):
         ans[i] = (1/np.sqrt(2*np.pi)) * np.exp(-(index * index) / 2.5)
     # ! 目前的归一化是归一化到“中间”为1
+    #print(ans, bins // 2)
     return ans / ans[bins//2]
 
 def generate_curve(oc_res: torch.tensor, normals: torch.tensor):
@@ -77,8 +83,11 @@ def generate_curve(oc_res: torch.tensor, normals: torch.tensor):
     offsets = idxs - l // 2
     left_idxs = torch.clip(offsets, 0, l).type(torch.int32)
     right_idxs = torch.clip(offsets + l, 0, l).type(torch.int32)
+    print(offsets)
+    print(left_idxs)
+    print(right_idxs)
+    print(normals)
     for i in range(idxs.shape[0]):
-        
         res[left_idxs[i]:right_idxs[i]] += normals[left_idxs[i]-offsets[i]:right_idxs[i]-offsets[i]]
     return res #/ torch.sum(res) * torch.sum(oc_res)
 
@@ -151,9 +160,8 @@ def FloatingPoint_Quantize(input_tensor, bits = 8):
 
 
 if __name__ == "__main__":
-    x = torch.tensor([1,2,3,4,5e6+1])
-    print(x)
-    print(x.type(torch.int32))
-    print(x.type(torch.int32).data & 1)
-    print(torch.bitwise_and(x, 1))
-    
+    gen_normal(7)
+    gen_normal(8)
+    #oc = torch.tensor([1, 0, 0, 1, 1, 1, 0])
+    #c = generate_curve(oc, gen_normal(7))
+    #print(c)

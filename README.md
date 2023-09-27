@@ -12,13 +12,13 @@
   - 是的，连 FOX 都不能跑，问就是 Ray Marching 部分还米有实现好
   - 但这部分并不简单，事实上大部分 NGP 的复现都抛弃了 `.msgpack` ，比如 `torch-ngp`
 - 渲染出图片
-  - 速度快的感人，这就是 Naive Python Cycle 的速度（
+  - 已经结合 NeRFAcc 实现了快速渲染！
 
 ## 后续开发计划？
 - 在这个版本里对 Ray Marching 做仿真
-- 应该会有一版以 C++ 为基础的项目实现，然后开始设计 C++ 项目的 Python 接口
+- 以 C++ 为基础的项目实现
 
 ## 文件结构：
-- `main.py` 是目前的主程序
+- `main_new.py` 是结合 NeRFAcc 的版本，速度很快
+- `main_old.py` 是手写版本的主程序，主要手写了渲染部分
 - `main_naive_ngp.py` 是用朴素的 ray marching 加上多像素并行实现的版本，速度更快一点
-- `main_new_method.py` 是 我们的高斯估计法

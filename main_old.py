@@ -15,6 +15,7 @@ parser.add_argument("--h", "--height", type = int, default = 800, help = "height
 parser.add_argument("--name", help = "Name Of the Output Image")
 parser.add_argument("--test_id", type = int, default = 0, help = "ID of out image in test datasets")
 parser.add_argument("--fast", type = int, default = 0, help = "Use Fast Compute Method")
+parser.add_argument("--config", default = "base", help = "Config Json Name")
 
 from camera import Camera
 from dataloader import load_msgpack
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     STEP_LENGTH = SQRT3 / NERF_STEPS
     
 
-    CONFIG_PATH = "./configs/base.json"
+    CONFIG_PATH = f"./configs/{args.config}.json"
 
     ## Device
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -112,8 +113,8 @@ if __name__ == "__main__":
         BATCH_SIZE = args.fast
         for pixel_index in trange(0, pixels, BATCH_SIZE):
             BATCH = min(BATCH_SIZE, pixels - pixel_index)
-            ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + BATCH]).to(DEVICE)
-            ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + BATCH]).to(DEVICE)
+            ray_o = torch.tensor(camera.rays_o[pixel_index: pixel_index + BATCH], device = DEVICE)
+            ray_d = torch.tensor(camera.rays_d[pixel_index: pixel_index + BATCH], device = DEVICE)
             
             """
             Naive Ray Marching

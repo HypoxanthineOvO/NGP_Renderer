@@ -98,7 +98,6 @@ if __name__ == "__main__":
     ts = torch.reshape(torch.linspace(NEAR_DISTANCE, FAR_DISTANCE, NERF_STEPS, device = DEVICE), (-1, 1))
     
     NORMAL = torch.tensor(gen_normal(NERF_STEPS), device = DEVICE)
-    valid_point_counter = np.zeros((camera.resolution[0], camera.resolution[1]))
     for pixel_index in trange(0, pixels):
         ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + 1]).to(DEVICE)
         ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + 1]).to(DEVICE)
@@ -108,7 +107,7 @@ if __name__ == "__main__":
         """
         
         pts = ray_o + ts * ray_d
-        occupancy = grid.intersect(pts * 2 + 0.5)
+        occupancy = grid.intersect(pts * 2 - 0.5)
         if(torch.sum(occupancy) == 0):
             continue
         ### New Method
@@ -120,12 +119,11 @@ if __name__ == "__main__":
                 (ts[oc[i]] - 0.5 * STEP_LENGTH).item(), (ts[oc[i]] + 0.5 * STEP_LENGTH).item(), SQRT3/1024, device = DEVICE
                 )
             for i in range(oc.shape[0])], dim = -1).reshape((-1, 1))
-        valid_point_counter[pixel_index//800, pixel_index%800] += ts_final.count_nonzero().detach().cpu().numpy()
         pts_final = ray_o + ts_final * ray_d
         color = torch.zeros([1, 3], dtype = torch.float32, device = DEVICE)
         opacity = torch.zeros([1, 1], dtype = torch.float32, device = DEVICE)
 
-        hash_features = hashenc(pts_final + 0.5)
+        hash_features = hashenc(pts_final)
         sh_features = torch.tile(shenc((ray_d+1) / 2), (hash_features.shape[0], 1))
         features = torch.concat([hash_features, sh_features], dim = -1)
 
@@ -145,4 +143,3 @@ if __name__ == "__main__":
     
     plt.savefig(os.path.join(output_dir, NAME))
     print(f"Done! Image was saved to ./{output_dir}/{NAME}.png")
-    np.save(f"Vps_new_{scene}", valid_point_counter)

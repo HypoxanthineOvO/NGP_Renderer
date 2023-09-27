@@ -6,7 +6,7 @@ class DensityGrid:
         '''
         Initialize the Density Grid
         '''
-        self.grid = torch.tensor(grid, device = "cuda")
+        self.grid = grid.clone().detach().cuda()
         self.aabb = torch.tensor(aabb, device = "cuda")
     
     def intersect(self, points):
