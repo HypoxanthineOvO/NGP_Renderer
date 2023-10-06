@@ -1,6 +1,8 @@
 import numpy as np
 import torch
-import tinycudann as tcnn
+import Modules.Hash as Hash
+import Modules.SphericalHarmonics as SH
+import Modules.Networks as Network
 import matplotlib.pyplot as plt
 import json
 import os
@@ -66,23 +68,40 @@ if __name__ == "__main__":
     # Load Configs and Generate Components
     with open(CONFIG_PATH, "r") as f:
         config = json.load(f)
-    hashenc = tcnn.NetworkWithInputEncoding(
+    # hashenc = tcnn.NetworkWithInputEncoding(
+    #     n_input_dims = 3,
+    #     n_output_dims = 16,
+    #     encoding_config = config["HashEnc"],
+    #     network_config = config["HashNet"]
+    # ).to(DEVICE)
+    # shenc = tcnn.Encoding(
+    #     n_input_dims = 3,
+    #     encoding_config = config["SHEnc"],
+    #     dtype = torch.float32
+    # ).to(DEVICE)
+    # rgb_net = tcnn.Network(
+    #     n_input_dims = 32,
+    #     n_output_dims = 3,
+    #     network_config = config["RGBNet"]
+    # ).to(DEVICE)
+    hashgrid = Hash.HashEncoding(
         n_input_dims = 3,
+        encoding_config = config["HashEnc"]
+    ).to(DEVICE)
+    sig_net = Network.MLP(
+        n_input_dims = 32,
         n_output_dims = 16,
-        encoding_config = config["HashEnc"],
         network_config = config["HashNet"]
     ).to(DEVICE)
-    shenc = tcnn.Encoding(
+    shenc = SH.SHEncoding(
         n_input_dims = 3,
-        encoding_config = config["SHEnc"],
-        dtype = torch.float32
+        encoding_config = config["SHEnc"]
     ).to(DEVICE)
-    rgb_net = tcnn.Network(
+    rgb_net = Network.MLP(
         n_input_dims = 32,
         n_output_dims = 3,
         network_config = config["RGBNet"]
     ).to(DEVICE)
-    
     
     camera = Camera(resolution, m_Camera_Angle_X, m_C2W)
     # exit()
@@ -94,9 +113,11 @@ if __name__ == "__main__":
 
     # Load Parameters
     snapshots = load_msgpack_new(DATA_PATH)
-    hashenc.load_state_dict({"params":snapshots["params"]["HashEncoding"]})
+    #hashenc.load_state_dict({"params":snapshots["params"]["HashEncoding"]})
+    hashgrid.load_states(snapshots["params"]["HashEncoding"][3072:])
+    sig_net.load_states(snapshots["params"]["HashEncoding"][:3072])
     
-    rgb_net.load_state_dict({"params":snapshots["params"]["RGB"]})
+    rgb_net.load_states(snapshots["params"]["RGB"])
     estimator: nerfacc.OccGridEstimator =  snapshots["OccupancyGrid"].to(DEVICE)
     
     print("==========Begin Running==========")
@@ -117,7 +138,8 @@ if __name__ == "__main__":
             directions = rays_d[ray_indices]
             ts = torch.reshape((t_starts + t_ends) / 2.0, (-1, 1))
             positions = origins + directions * ts
-            hash_features = hashenc(positions)
+            hash_features_raw = hashgrid(positions)
+            hash_features = sig_net(hash_features_raw)
             alphas_raw = hash_features[..., 0]
             alphas = (1. - torch.exp(-torch.exp(alphas_raw.type(torch.float32)) * STEP_LENGTH))
             return alphas
@@ -128,7 +150,8 @@ if __name__ == "__main__":
             ts = torch.reshape((t_starts + t_ends) / 2.0, (-1, 1))
             positions = origins + directions * ts
             
-            hash_features = hashenc(positions)
+            hash_features_raw = hashgrid(positions)
+            hash_features = sig_net(hash_features_raw)
             sh_features = shenc((directions + 1) / 2)
             
             

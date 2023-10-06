@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import Morton3D
 
 def Part_1_By_2(x: torch.tensor):
     x &= 0x000003ff;                 # x = ---- ---- ---- ---- ---- --98 7654 3210

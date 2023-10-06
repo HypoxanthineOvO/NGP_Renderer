@@ -4,44 +4,56 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio as compute_psnr
 import matplotlib.pyplot as plt
 import cv2 as cv
+import json
 
 scenes = ["chair", "drums", "ficus", "hotdog", "lego", "materials", "mic", "ship"]
+scenes = ["lego"]
 
-
-def PSNR(name, path, id):
-    path1 = f"{path}/Test_{name}_{id}.png"
-    path2 = f"./data/nerf_synthetic/{name}/test/r_{id}.png"
-    
-    img1_raw = np.array(cv.imread(path1) / 255., dtype=np.float32)
-    img1 = cv.resize(img1_raw, (800, 800),interpolation = cv.INTER_AREA)
-    #img2 = np.array(cv.imread(path2) / 255., dtype=np.float32)
+def PSNR_ip(img1, path2):
     img2_raw = cv.imread(path2, cv.IMREAD_UNCHANGED) / 255.
     img2_raw = img2_raw[..., :3] * img2_raw[..., 3:]
     img2 = np.array(img2_raw, dtype=np.float32)
     return compute_psnr(img1, img2)
 
+def Show_Diff(path1, path2, name = None):
+    img1 = np.array(cv.imread(path1) / 255., dtype=np.float32)
+    img2_raw = cv.imread(path2, cv.IMREAD_UNCHANGED) / 255.
+    img2_raw = img2_raw[..., :3] * img2_raw[..., 3:]
+    img2 = np.array(img2_raw, dtype=np.float32)
+    
+    diff = np.abs(img1 - img2)
+    out_name = "Diff"
+    if name is not None:
+        out_name = name
+    plt.imsave(f"{out_name}.png",diff)
+    
+def resize(path):
+    image = np.array(cv.imread(path) / 255., dtype=np.float32)
+    return cv.resize(image, (800, 800),interpolation = cv.INTER_AREA)
+
 if __name__ == "__main__":
-    out_basedir = os.path.join(".", "test_out")
-    STEP = 8
-    total_mean_psnrs = []
-    for scene in scenes:
+    res = {"Mean": 0.0}
+    outdir = "Test_Results"
+    os.makedirs(outdir, exist_ok = True)
+    mean_psnrs = []
+    for i, name in enumerate(scenes):
         psnrs = []
-        out_dir = os.path.join(out_basedir, scene)
-        os.makedirs(out_dir, exist_ok = True)
-        for id in range(0, 200, STEP):
-            command = f"python main.py --scene {scene} --w 1600 --h 1600 --test_id {id} --data BigData --config big"
-            os.system(command)
-            command_out_dir = os.path.join(".", "outputs")
-            #command_out_dir = os.path.join(".", "test_out", scene)
-            psnr = PSNR(scene, command_out_dir, id)
+        os.makedirs(os.path.join(outdir, name), exist_ok = True)
+        for id in range(0, 200, 8):
+            out_file_name = "Test_" + name + f"_{id}.png"
+            if not (os.path.exists(os.path.join(outdir, name, out_file_name))):
+                os.system(f"python main_new.py --scene {name} --w 1600 --h 1600 --test_id {id} --data BigData --config big")
+                psnr = round(PSNR_ip(resize(os.path.join("outputs", out_file_name)), f"./data/nerf_synthetic/{name}/test/r_{id}.png"), 4)
+                shutil.move(os.path.join("outputs", out_file_name), os.path.join(outdir, name, out_file_name))
+            else:
+                psnr = round(PSNR_ip(resize(os.path.join(outdir, name, out_file_name)), f"./data/nerf_synthetic/{name}/test/r_{id}.png"), 4)
+            print(f'PSNR Of {name}: {psnr}')
             psnrs.append(psnr)
-            #os.remove(os.path.join(out_dir, f"Test_{scene}_{id}.png"))
-            shutil.move(os.path.join(command_out_dir, f"Test_{scene}_{id}.png"),os.path.join(out_dir))
-        mean_psnr = round(np.mean(psnrs), 4)
-        total_mean_psnrs.append(mean_psnr)
-        print(f"{scene.capitalize()}'s PSNR: {mean_psnr}")
-        with open(os.path.join(out_dir, "PSNR.txt"), "w") as f:
-            f.write(f"{scene.capitalize()}, mean psnr: {mean_psnr}\n")
-            for i, psnr in enumerate(psnrs):
-                f.write(f"ID: {i * STEP}, psnr = {round(psnr, 4)}\n")
-    print(f"Mean PSNR = {round(np.mean(total_mean_psnrs), 4)}")
+            
+            res[name] = [round(np.mean(psnrs), 4), psnrs]
+            with open(os.path.join(outdir, "results.json"), "w") as f:
+                json.dump(res, f, indent = 4)
+        mean_psnrs += psnrs
+        res["Mean"] = round(np.mean(mean_psnrs), 4)
+    with open(os.path.join(outdir, "results.json"), "w") as f:
+        json.dump(res, f, indent = 4)

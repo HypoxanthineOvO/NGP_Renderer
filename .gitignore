@@ -15,7 +15,8 @@ snapshots/
 outputs/
 mine/
 tests/
-
+Test_Results/
+ExampleOutputs/
 *.npy
 *.txt
 PyModel.py

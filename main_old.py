@@ -147,12 +147,15 @@ if __name__ == "__main__":
             
             camera.image[pixel_index: pixel_index + BATCH_SIZE] = (color).cpu().detach().numpy()
     else:
-        for pixel_index in trange(0, pixels):
-            ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + 1]).to(DEVICE)
-            ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + 1]).to(DEVICE)
-
-            ts = torch.reshape(torch.linspace(NEAR_DISTANCE, FAR_DISTANCE, NERF_STEPS, device = DEVICE), (-1, 1))
+        BATCH = 4
+        for pixel_index in trange(0, pixels, BATCH):
+            ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + BATCH]).to(DEVICE)
+            ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + BATCH]).to(DEVICE)
+            
+            ts = torch.reshape(torch.range(NEAR_DISTANCE, FAR_DISTANCE, STEP_LENGTH, device = DEVICE), (-1, 1))
+            print(ray_o.shape, ray_d.shape, ts.shape)
             pts = ray_o + ts * ray_d
+
             occupancy = grid.intersect(pts * 2 - 0.5)
             if(torch.sum(occupancy) == 0):
                 continue
