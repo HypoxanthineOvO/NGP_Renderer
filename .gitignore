@@ -21,6 +21,8 @@ ExampleOutputs/
 *.txt
 PyModel.py
 tmp.py
+Test*
+DataRunner*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

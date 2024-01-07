@@ -61,11 +61,11 @@ def cumprod_exclusive_ngp(tensor: torch.Tensor) -> torch.Tensor:
 
 ### ISCA 2024 Method
 def gen_normal(bins = 9):
-    print(bins)
-    print(bins // 2)
-    print(-bins // 2 + 1, bins // 2 + 1)
+    #print(bins)
+    #print(bins // 2)
+    #print(-bins // 2 + 1, bins // 2 + 1)
     indexs = np.arange(-bins//2+1, bins//2+1, 1)
-    print(indexs)
+    #print(indexs)
     
     ans = np.zeros(bins)
     for i, index in enumerate(indexs):
@@ -83,10 +83,10 @@ def generate_curve(oc_res: torch.tensor, normals: torch.tensor):
     offsets = idxs - l // 2
     left_idxs = torch.clip(offsets, 0, l).type(torch.int32)
     right_idxs = torch.clip(offsets + l, 0, l).type(torch.int32)
-    print(offsets)
-    print(left_idxs)
-    print(right_idxs)
-    print(normals)
+    #print(offsets)
+    #print(left_idxs)
+    #print(right_idxs)
+    #print(normals)
     for i in range(idxs.shape[0]):
         res[left_idxs[i]:right_idxs[i]] += normals[left_idxs[i]-offsets[i]:right_idxs[i]-offsets[i]]
     return res #/ torch.sum(res) * torch.sum(oc_res)

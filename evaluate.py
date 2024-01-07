@@ -7,7 +7,6 @@ import cv2 as cv
 import json
 
 scenes = ["chair", "drums", "ficus", "hotdog", "lego", "materials", "mic", "ship"]
-scenes = ["lego"]
 
 def PSNR_ip(img1, path2):
     img2_raw = cv.imread(path2, cv.IMREAD_UNCHANGED) / 255.
@@ -36,13 +35,13 @@ if __name__ == "__main__":
     outdir = "Test_Results"
     os.makedirs(outdir, exist_ok = True)
     mean_psnrs = []
-    for i, name in enumerate(scenes):
+    for i, name in enumerate(scenes[:1]):
         psnrs = []
         os.makedirs(os.path.join(outdir, name), exist_ok = True)
-        for id in range(0, 200, 8):
+        for id in range(0, 200, 5):
             out_file_name = "Test_" + name + f"_{id}.png"
             if not (os.path.exists(os.path.join(outdir, name, out_file_name))):
-                os.system(f"python main_new.py --scene {name} --w 1600 --h 1600 --test_id {id} --data BigData --config big")
+                os.system(f"python main_new.py --scene {name} --w 800 --h 800 --test_id {id} --config base")
                 psnr = round(PSNR_ip(resize(os.path.join("outputs", out_file_name)), f"./data/nerf_synthetic/{name}/test/r_{id}.png"), 4)
                 shutil.move(os.path.join("outputs", out_file_name), os.path.join(outdir, name, out_file_name))
             else:

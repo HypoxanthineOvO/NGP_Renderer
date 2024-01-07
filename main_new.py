@@ -17,6 +17,7 @@ parser.add_argument("--h", "--height", type = int, default = 800, help = "height
 parser.add_argument("--name", help = "Name Of the Output Image")
 parser.add_argument("--test_id", type = int, default = 0, help = "ID of out image in test datasets")
 parser.add_argument("--config", default = "base", help = "Config Json Name")
+parser.add_argument("--white_bkgd", action = "store_true", help = "Use white background instead of black background")
 
 from camera import Camera
 from dataloader import load_msgpack_new
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     rays_o_total = torch.tensor(camera.rays_o, dtype = torch.float32, device = DEVICE)
     rays_d_total = torch.tensor(camera.rays_d, dtype = torch.float32, device = DEVICE)
     total_color = np.zeros([resolution[0] * resolution[1], 3], dtype = np.float32)
-    
+    total_opacity = np.zeros([resolution[0] * resolution[1], 1], dtype = np.float32)
     BATCH_SIZE = min(100 * 100, resolution[0] * resolution[1])
     
     for index in range(0, resolution[0] * resolution[1], BATCH_SIZE):
@@ -152,6 +153,7 @@ if __name__ == "__main__":
             n_rays = BATCH, rgb_alpha_fn = rgb_alpha_fn
         )
         total_color[index: index + BATCH] = (color).cpu().detach().numpy()
+        total_opacity[index: index + BATCH] = (opacity).cpu().detach().numpy()
 
 
     # * Only show image and don't show the axis
@@ -159,7 +161,13 @@ if __name__ == "__main__":
     fig = plt.figure(figsize = (img_w / dpi, img_h / dpi), dpi = dpi)
     axes = fig.add_axes([0, 0, 1, 1])
     axes.set_axis_off()
-    axes.imshow(total_color.reshape(camera.w, camera.h, 3))
+    if args.white_bkgd:
+        img = total_color + (1. - total_opacity) * np.ones_like(total_color)
+    else:
+        img = total_color
+    
+    img_final = img.reshape(camera.h, camera.w, 3)#.transpose([1, 0, 2])
+    axes.imshow(img_final)
     
     output_dir = os.path.join("outputs")
     os.makedirs(output_dir, exist_ok = True)

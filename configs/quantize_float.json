@@ -1,0 +1,16 @@
+{
+    "RayMarching": {
+        "Point": [3, 13],
+        "Direction": [1, 13]
+    },
+    "Hash": {
+        "Feature": [4, 11],
+        "Result": [4, 11]
+    },
+    "SH": "Float",
+    "MLP": {
+        "Weight": [4, 11],
+        "Feature": [4 , 11]
+    },
+    "VolumeRendering": "Float"
+}

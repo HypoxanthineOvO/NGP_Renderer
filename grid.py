@@ -20,6 +20,6 @@ class DensityGrid:
         # Noticed that: a point out of aabb may map to a index in [0, 128**3)
         # So we must check by this
         masks_raw = ((points >= self.aabb[0]) & (points <= self.aabb[1]))
-        masks = torch.all(masks_raw, dim = 1).type(torch.int32)
+        masks = torch.all(masks_raw, dim = -1).type(torch.int32)
         valid_idxs = idxs * masks
         return self.grid[valid_idxs]

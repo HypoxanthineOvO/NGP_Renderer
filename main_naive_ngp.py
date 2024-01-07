@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import tinycudann as tcnn
 import matplotlib.pyplot as plt
-import json, time, os, msgpack, Morton3D, cv2
+import json, time, os, msgpack,  cv2
 from tqdm import trange, tqdm
 import argparse
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     ### Scene Name
     scene = args.scene
     #DATA_PATH = f"./snapshots/NsightComputeData/{scene}.msgpack"    
-    DATA_PATH = f"./snapshots/TotalData/{scene}.msgpack"
+    DATA_PATH = f"./snapshots/ValData/{scene}_16_2048.msgpack"
     ### Resolution
     img_w, img_h = args.w, args.h    
     resolution = (img_w, img_h)    
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     NEAR_DISTANCE = 0.6
     FAR_DISTANCE = 2.
 
-    CONFIG_PATH = "./configs/base.json"
+    CONFIG_PATH = "./configs/small.json"
 
     ## Compute Batch Size
     BATCH_SIZE = 5000
@@ -111,14 +111,19 @@ if __name__ == "__main__":
             position = ray_o + t * ray_d
             #if(grid.intersect(position[0] * 2 + 0.5)):
             masks = grid.intersect(position * 2 + 0.5).reshape((-1, 1))
+            
+            torch.save(torch.cat([ray_o, ray_d, position], dim = -1), "Original-Direction-Position.pt")
             # Case of we need run
             pos_hash = position + 0.5
             hash_feature = hashenc(pos_hash)
+            torch.save(hash_feature, "HashFeature.pt")
             sh_feature = shenc((ray_d + 1)/2)
+            torch.save(sh_feature, "SHFeature.pt")
             feature = torch.concat([hash_feature, sh_feature], dim = -1)
 
             alpha_raw = hash_feature[:, 0:1]
             rgb_raw = rgb_net(feature)
+            torch.save(rgb_raw, "RGB_Raw_Output.pt")
             T = 1 - opacity
             alpha = 1 - torch.exp(-torch.exp(alpha_raw) * STEP_LENGTH)
             
@@ -127,7 +132,8 @@ if __name__ == "__main__":
             
             opacity += weight
             color += rgb
-                
+            torch.save(torch.cat([color, alpha], dim = -1), "RGBA.pt")
+            exit()
             t += STEP_LENGTH
 
         camera.image[pixel_index: pixel_index + BATCH_SIZE] = color.cpu().detach().numpy()

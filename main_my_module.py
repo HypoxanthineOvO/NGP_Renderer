@@ -67,23 +67,9 @@ if __name__ == "__main__":
     
     # Load Configs and Generate Components
     with open(CONFIG_PATH, "r") as f:
-        config = json.load(f)
-    # hashenc = tcnn.NetworkWithInputEncoding(
-    #     n_input_dims = 3,
-    #     n_output_dims = 16,
-    #     encoding_config = config["HashEnc"],
-    #     network_config = config["HashNet"]
-    # ).to(DEVICE)
-    # shenc = tcnn.Encoding(
-    #     n_input_dims = 3,
-    #     encoding_config = config["SHEnc"],
-    #     dtype = torch.float32
-    # ).to(DEVICE)
-    # rgb_net = tcnn.Network(
-    #     n_input_dims = 32,
-    #     n_output_dims = 3,
-    #     network_config = config["RGBNet"]
-    # ).to(DEVICE)
+        config = json.load(f)    
+
+
     hashgrid = Hash.HashEncoding(
         n_input_dims = 3,
         encoding_config = config["HashEnc"]

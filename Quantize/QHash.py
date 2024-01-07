@@ -1,6 +1,9 @@
 import torch
 from torch.nn import Module
 import math
+from .QuantUtils import Fixed_Point_Quantize, Floating_Point_Quantize
+
+
 
 def Hashing(vertex: torch.Tensor, size: int, non_hashing_resolution: float = 0.0):
     x,y,z = vertex[..., 0], vertex[..., 1], vertex[..., 2]
@@ -13,8 +16,8 @@ def Hashing(vertex: torch.Tensor, size: int, non_hashing_resolution: float = 0.0
     index = index.type(torch.int32)
     return index
 
-class HashEncoding(Module):
-    def __init__(self, n_input_dims: int, encoding_config: dict):
+class QHashEncoding(Module):
+    def __init__(self, n_input_dims: int, encoding_config: dict, FeatureBits = [1, 14], ResultBits = [1, 14], qtype = "Fixed"):
         super().__init__()
         
         self.n_levels: int = encoding_config.get("n_levels", 16)
@@ -23,10 +26,17 @@ class HashEncoding(Module):
         self.base_resolution: int = encoding_config.get("base_resolution", 16)
         self.per_level_scale: float = encoding_config.get("per_level_scale", 1.38191288)
         
+        self.FeatureBits = FeatureBits
+        self.ResultBits = ResultBits
+        
         # Generate Parameters
         hash_grids = []
         scales = []
         sizes = []
+        if qtype == "Fixed":
+            self.Quant_Function = Fixed_Point_Quantize
+        else:
+            self.Quant_Function = Floating_Point_Quantize
         
         for i in range(self.n_levels):
             scale_raw = math.pow(
@@ -52,7 +62,8 @@ class HashEncoding(Module):
         state_dict = {}
         for i, size in enumerate(self.sizes):
             offset = size * self.n_feature_per_level
-            state_dict[f"grid.{i}.weight"] = states[:offset].reshape([size, self.n_feature_per_level])
+            weight = states[:offset].reshape([size, self.n_feature_per_level])
+            state_dict[f"grid.{i}.weight"] = self.Quant_Function(weight, self.FeatureBits[0], self.FeatureBits[1])
             states = states[offset:]
         self.load_state_dict(state_dict)
         
@@ -60,6 +71,8 @@ class HashEncoding(Module):
         shape = list(inputs.shape)
         assert(len(shape) == 2)
         assert(shape[-1] == 3)
+        
+        inputs = self.Quant_Function(inputs, self.ResultBits[0], self.ResultBits[1])
         
         outputs = torch.zeros(
             [shape[0], self.n_levels * self.n_feature_per_level], 
@@ -74,6 +87,8 @@ class HashEncoding(Module):
             inputs_scale = inputs * scale + 0.5
             inputs_grid = torch.floor(inputs_scale)
             inputs_delta = inputs_scale - inputs_grid
+            
+            inputs_delta = self.Quant_Function(inputs_delta, self.ResultBits[0], self.ResultBits[1])
             
             inputs_grid = inputs_grid.type(torch.int32)
             x_grid, y_grid, z_grid = inputs_grid[..., 0], inputs_grid[..., 1], inputs_grid[..., 2]
@@ -97,6 +112,7 @@ class HashEncoding(Module):
             w_110 = torch.reshape(dx * dy * (1 - dz), (-1, 1))
             w_111 = torch.reshape(dx * dy * dz, (-1, 1))
             
+            
             f_000 = self.grid[level](Hashing(v_000, self.sizes[level], resolution))
             f_001 = self.grid[level](Hashing(v_001, self.sizes[level], resolution))
             f_010 = self.grid[level](Hashing(v_010, self.sizes[level], resolution))
@@ -106,10 +122,10 @@ class HashEncoding(Module):
             f_110 = self.grid[level](Hashing(v_110, self.sizes[level], resolution))
             f_111 = self.grid[level](Hashing(v_111, self.sizes[level], resolution))
             
-            features = f_000 * w_000 + f_001 * w_001 + f_010 * w_010 + f_011 * w_011 \
-            + f_100 * w_100 + f_101 * w_101 + f_110 * w_110 + f_111 * w_111
+            features = f_000 * w_000 + f_001 * w_001 + f_010 * w_010 + f_011 * w_011 + f_100 * w_100 + f_101 * w_101 + f_110 * w_110 + f_111 * w_111
             
             outputs[..., 
                 level * self.n_feature_per_level: (level + 1) * self.n_feature_per_level
                 ] = features
+        outputs = self.Quant_Function(outputs, self.ResultBits[0], self.ResultBits[1])
         return outputs

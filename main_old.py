@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import tinycudann as tcnn
 import matplotlib.pyplot as plt
-import json, time, os, msgpack, Morton3D, cv2
+import json, time, os, msgpack, cv2
 from tqdm import trange, tqdm
 import argparse
 
@@ -147,20 +147,19 @@ if __name__ == "__main__":
             
             camera.image[pixel_index: pixel_index + BATCH_SIZE] = (color).cpu().detach().numpy()
     else:
-        BATCH = 4
+        BATCH = 1
         for pixel_index in trange(0, pixels, BATCH):
             ray_o = torch.from_numpy(camera.rays_o[pixel_index: pixel_index + BATCH]).to(DEVICE)
             ray_d = torch.from_numpy(camera.rays_d[pixel_index: pixel_index + BATCH]).to(DEVICE)
             
-            ts = torch.reshape(torch.range(NEAR_DISTANCE, FAR_DISTANCE, STEP_LENGTH, device = DEVICE), (-1, 1))
-            print(ray_o.shape, ray_d.shape, ts.shape)
-            pts = ray_o + ts * ray_d
-
+            ts = torch.arange(NEAR_DISTANCE, FAR_DISTANCE, STEP_LENGTH, device = DEVICE)
+            pts = ray_o[...,None,:] + ts[...,None] * ray_d[...,None,:]
             occupancy = grid.intersect(pts * 2 - 0.5)
             if(torch.sum(occupancy) == 0):
                 continue
-            color = torch.zeros([1, 3], dtype = torch.float32, device = DEVICE)
-            opacity = torch.zeros([1, 1], dtype = torch.float32, device = DEVICE)
+            color = torch.zeros([BATCH, 3], dtype = torch.float32, device = DEVICE)
+            opacity = torch.zeros([BATCH, 1], dtype = torch.float32, device = DEVICE)
+
             pts_truth = pts[torch.where(occupancy)]
 
             hash_features = hashenc(pts_truth)
